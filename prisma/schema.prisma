@@ -1,0 +1,113 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+}
+
+enum Role {
+  ADMIN
+  EDITOR
+  APPROVER
+}
+
+enum ContentType {
+  FEED
+  CAROUSEL
+  REEL
+}
+
+enum PostStatus {
+  UNCONFIGURED
+  DRAFT
+  SUBMITTED
+  APPROVED
+  SCHEDULED
+  POSTED
+  FAILED
+  ARCHIVED
+  PUBLISHED
+}
+
+enum ActionType {
+  CREATE
+  SUBMIT
+  APPROVE
+  REJECT
+  RESCHEDULE
+}
+
+enum MediaType {
+  IMAGE
+  VIDEO
+}
+
+model User {
+  id             String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email          String     @unique
+  password       String
+  name           String
+  role           Role       @default(EDITOR)
+  is_active      Boolean    @default(true)
+  created_at     DateTime   @default(now())
+  
+  // Relasi
+  posts_authored Post[]     @relation("PostAuthor")
+  posts_approved Post[]     @relation("PostApprover")
+  audit_logs     AuditLog[]
+  
+  @@map("users")
+}
+
+model Post {
+  id              String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  title           String
+  caption         String?
+  hashtags        String[]
+  drive_folder_id String?
+  content_type    ContentType @default(FEED)
+  status          PostStatus  @default(UNCONFIGURED)
+  author_id       String      @db.Uuid
+  approver_id     String?     @db.Uuid
+  scheduled_time  DateTime?
+  created_at      DateTime    @default(now())
+  updated_at      DateTime    @updatedAt
+
+  // Relasi
+  author          User        @relation("PostAuthor", fields: [author_id], references: [id])
+  approver        User?       @relation("PostApprover", fields: [approver_id], references: [id])
+  media           PostMedia[]
+  audit_logs      AuditLog[]
+
+  @@map("posts")
+}
+
+model PostMedia {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  post_id       String    @db.Uuid
+  drive_file_id String
+  gcs_url       String?
+  media_type    MediaType @default(IMAGE)
+  sort_order    Int       @default(1)
+
+  // Relasi
+  post          Post      @relation(fields: [post_id], references: [id], onDelete: Cascade)
+
+  @@map("post_media")
+}
+
+model AuditLog {
+  id         String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  post_id    String     @db.Uuid
+  user_id    String     @db.Uuid
+  action     ActionType
+  note       String?
+  created_at DateTime   @default(now())
+
+  // Relasi
+  post       Post       @relation(fields: [post_id], references: [id], onDelete: Cascade)
+  user       User       @relation(fields: [user_id], references: [id])
+
+  @@map("audit_logs")
+}
