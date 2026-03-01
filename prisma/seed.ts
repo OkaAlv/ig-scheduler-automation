@@ -1,11 +1,11 @@
 import { PrismaClient, Role } from '@prisma/client';
-// Karena kita pakai adapter pg di v7
+// Karena pakai adapter pg di v7
 import { PrismaPg } from '@prisma/adapter-pg';
 import * as bcrypt from 'bcrypt';
 import { Pool } from 'pg';
 import 'dotenv/config';
 
-// Inisialisasi koneksi persis seperti di service kita
+// Inisialisasi koneksi
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
@@ -13,11 +13,11 @@ const prisma = new PrismaClient({ adapter });
 async function main() {
   console.log('🌱 Memulai proses seeding data...');
 
-  // 1. Bersihkan data lama (opsional, agar tidak duplikat jika di-run ulang)
+  // 1. Bersihkan data lama
   await prisma.user.deleteMany();
   console.log('🧹 Data users lama dibersihkan.');
 
-  // Acak password default "rahasia123" untuk semua akun tim inti
+  // Acak password default
   const defaultPassword = await bcrypt.hash('rahasia123', 10);
   console.log('🔐 Mengacak password default...');
 
@@ -28,7 +28,7 @@ async function main() {
       name: 'Oka Alvansyah',
       role: Role.ADMIN,
       is_active: true,
-      password: defaultPassword, // <--- Sudah ditambahkan
+      password: defaultPassword,
     },
   });
 
@@ -38,7 +38,7 @@ async function main() {
       name: 'Afifah Naila Nasution',
       role: Role.EDITOR,
       is_active: true,
-      password: defaultPassword, // <--- Sudah ditambahkan
+      password: defaultPassword,
     },
   });
 
@@ -48,7 +48,7 @@ async function main() {
       name: 'M. Fikri Zulfi',
       role: Role.APPROVER,
       is_active: true,
-      password: defaultPassword, // <--- Sudah ditambahkan
+      password: defaultPassword,
     },
   });
 

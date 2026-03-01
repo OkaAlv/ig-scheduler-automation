@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, BadRequestException } from '@nestjs/comm
 import { PrismaService } from '../prisma/prisma.service';
 import { CreatePostDto } from './dto/create-post.dto';
 import { UpdatePostDto } from './dto/update-post.dto';
+import { PostStatus } from '@prisma/client';
 
 @Injectable()
 export class PostsService {
@@ -158,18 +159,40 @@ export class PostsService {
   }
 
   // Fitur 2: Mengambil Semua Data Postingan
-  async findAll() {
-    // Mengambil data dari tabel posts, sekalian menarik data author (User)
-    return this.prisma.post.findMany({
-      include: {
-        author: {
-          select: { name: true, role: true }
-        },
-        approver: {
-          select: { name: true }
+  async findAll(page: number = 1, limit: number = 10, status?: PostStatus) {
+    // 1. Hitung data mana yang harus dilewati (untuk halaman 2, 3, dst)
+    const skip = (page - 1) * limit;
+    
+    // 2. Siapkan keranjang filter (kalau status kosong, tampilkan semua)
+    const whereCondition = status ? { status } : {};
+
+    // 3. Ambil data dan hitung total keseluruhan secara bersamaan
+    const [data, total] = await Promise.all([
+      this.prisma.post.findMany({
+        where: whereCondition,
+        skip: skip,
+        take: limit,
+        orderBy: { created_at: 'desc' }, // Urutkan dari yang paling baru
+        include: {
+          // AJAIB: Ubah UUID menjadi Nama Asli!
+          author: { select: { name: true, role: true } },
+          approver: { select: { name: true, role: true } },
         }
+      }),
+      this.prisma.post.count({ where: whereCondition })
+    ]);
+
+    // 4. Kembalikan data dengan format rapi untuk Frontend
+    return {
+      message: 'Berhasil mengambil data postingan',
+      data: data,
+      meta: {
+        total_data: total,
+        current_page: page,
+        total_pages: Math.ceil(total / limit),
+        per_page: limit
       }
-    });
+    };
   }
   
 
