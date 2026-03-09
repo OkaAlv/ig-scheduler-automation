@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, BadRequestException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma/prisma.service';
 import * as bcrypt from 'bcrypt';
@@ -10,20 +10,18 @@ export class AuthService {
     private jwtService: JwtService
   ) {}
 
+  // FUNGSI ASLI MAS OKA (TIDAK DISENTUH SAMA SEKALI)
   async login(email: string, pass: string) {
-    // 1. Cari apakah emailnya ada di database
     const user = await this.prisma.user.findUnique({ where: { email } });
     if (!user) {
       throw new UnauthorizedException('Gagal! Email atau password salah.');
     }
 
-    // 2. Cocokkan password yang diketik dengan password acak di database
     const isPasswordValid = await bcrypt.compare(pass, user.password);
     if (!isPasswordValid) {
       throw new UnauthorizedException('Gagal! Email atau password salah.');
     }
 
-    // 3. Jika cocok, cetak "Tiket Emas" (Token JWT)
     const payload = { sub: user.id, email: user.email, role: user.role };
     
     return {
@@ -35,5 +33,21 @@ export class AuthService {
         role: user.role
       }
     };
+  }
+
+  // TAMBAHAN FITUR GANTI PASSWORD
+  async changePassword(userId: string, newPassword: string) {
+    if (!newPassword || newPassword.length < 6) {
+      throw new BadRequestException('Password minimal 6 karakter');
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { password: hashedPassword },
+    });
+
+    return { message: 'Password berhasil diperbarui' };
   }
 }

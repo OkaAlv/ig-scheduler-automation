@@ -201,28 +201,35 @@ export class PostsService {
   }
 
   async update(id: string, updatePostDto: UpdatePostDto) {
+    // 1. Cari data aslinya dulu
     const post = await this.prisma.post.findUnique({ where: { id } });
     if (!post) {
-      // Pastikan NotFoundException sudah di-import di bagian atas file!
       throw new NotFoundException('Postingan tidak ditemukan di database!');
     }
 
+    // 2. SAFETY NET 🛡️: Pastikan updatePostDto selalu berupa objek, meskipun kosong
+    const payload = updatePostDto || {};
+
+    // 3. Logika ubah status
     let newStatus = post.status;
     if (post.status === 'UNCONFIGURED') {
       newStatus = 'DRAFT';
     }
 
+    // 4. Update data dengan aman
     const updatedPost = await this.prisma.post.update({
       where: { id },
       data: {
-        caption: updatePostDto.caption,
-        scheduled_time: updatePostDto.scheduled_time,
+        // Keajaiban Prisma: kalau nilai payload.caption itu 'undefined', 
+        // Prisma TIDAK AKAN menghapus data lama di database. Sangat aman!
+        caption: payload.caption,
+        scheduled_time: payload.scheduled_time,
         status: newStatus, 
       },
     });
 
     return { 
-      message: 'Postingan berhasil diperbarui dan siap di-submit!', 
+      message: 'Postingan berhasil diperbarui!', 
       data: updatedPost 
     };
   }

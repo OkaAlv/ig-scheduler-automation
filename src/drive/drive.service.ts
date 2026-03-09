@@ -7,7 +7,7 @@ import { PrismaService } from '../prisma/prisma.service'; // Jembatan DB
 export class DriveService {
   private driveClient;
 
-  // Inject PrismaService ke sini
+  // Inject PrismaService
   constructor(private readonly prisma: PrismaService) {
     try {
       const keyFilePath = path.join(process.cwd(), 'credentials', 'google-drive.json');
@@ -47,7 +47,7 @@ export class DriveService {
               drive_folder_id: folder.id,
               status: 'UNCONFIGURED',
               content_type: 'FEED',
-              author_id: userId, // 2. Masukkan userId ke kolom author_id!
+              author_id: userId,
             },
           });
           newSyncCount++;
@@ -66,7 +66,6 @@ export class DriveService {
   // Fitur: Mengambil isi file (foto/video) di dalam sebuah folder
   async getFolderContents(folderId: string) {
     try {
-      // Kita suruh Google mencari file yang "orang tuanya" adalah folderId ini
       const response = await this.driveClient.files.list({
         q: `'${folderId}' in parents and trashed = false`,
         // Kita minta link gambar (webContentLink/thumbnailLink) agar bisa ditampilkan di Frontend
