@@ -6,7 +6,6 @@ import { PostStatus } from '@prisma/client';
 
 @Injectable()
 export class PostsService {
-  // Inject PrismaService ke dalam PostsService
   constructor(private readonly prisma: PrismaService) {}
 
   // Fitur 1: Membuat Draft Postingan Baru
@@ -18,7 +17,7 @@ export class PostsService {
           caption: createPostDto.caption,
           content_type: createPostDto.content_type || 'FEED',
           author_id: createPostDto.author_id,
-          status: 'DRAFT', // Otomatis masuk sebagai draft dulu
+          status: 'DRAFT', 
         },
       });
       return { message: 'Draft postingan berhasil dibuat!', data: newPost };
@@ -27,29 +26,29 @@ export class PostsService {
     }
   }
 
-  // Fitur: Editor mengirimkan Draft ke Approver
+  // Fitur: Editor mengirimkan Draft (atau Revisi) ke Approver
   async submit(id: string, userId: string) {
-    // Pastikan user_id dikirim dari Postman
     if (!userId) {
       throw new BadRequestException('ID User (Editor) wajib dikirimkan!');
     }
 
-    // 1. Cari postingannya dulu
     const post = await this.prisma.post.findUnique({ where: { id } });
     if (!post) {
       throw new NotFoundException('Postingan tidak ditemukan di database!');
     }
 
-    // 2. Validasi status
-    if (post.status !== 'DRAFT' && post.status !== 'UNCONFIGURED') {
+    // 💡 PERBAIKAN: Izinkan status REJECTED untuk dikirim ulang setelah direvisi!
+    if (post.status !== 'DRAFT' && post.status !== 'UNCONFIGURED' && post.status !== 'REJECTED') {
       throw new BadRequestException(`Postingan tidak bisa disubmit karena statusnya saat ini: ${post.status}`);
     }
 
-    // 3. Update status dan catat log
     const result = await this.prisma.$transaction(async (prisma) => {
       const updatedPost = await prisma.post.update({
         where: { id },
-        data: { status: 'SUBMITTED' },
+        data: { 
+          status: 'SUBMITTED',
+          reject_reason: null, // 🧹 Hapus alasan penolakan lama karena sudah direvisi
+        },
       });
 
       await prisma.auditLog.create({
@@ -73,26 +72,24 @@ export class PostsService {
       throw new BadRequestException('ID User (Approver) wajib dikirimkan!');
     }
 
-    // 1. Cari postingannya
     const post = await this.prisma.post.findUnique({ where: { id } });
     if (!post) {
       throw new NotFoundException('Postingan tidak ditemukan di database!');
     }
 
-    // 2. Validasi: Hanya status SUBMITTED yang boleh di-approve
     if (post.status !== 'SUBMITTED') {
       throw new BadRequestException(
         `Gagal! Postingan saat ini berstatus ${post.status}. Hanya postingan SUBMITTED yang bisa disetujui.`
       );
     }
 
-    // 3. Update status, isi approver_id, dan catat log
     const result = await this.prisma.$transaction(async (prisma) => {
       const updatedPost = await prisma.post.update({
         where: { id },
         data: { 
           status: 'APPROVED',
-          approver_id: userId, // Mencatat ID Fikri sebagai penyetuju
+          approver_id: userId, 
+          reject_reason: null, // 🧹 Pastikan bersih dari sisa alasan reject
         },
       });
 
@@ -120,26 +117,24 @@ export class PostsService {
       throw new BadRequestException('Alasan penolakan (reason) wajib diisi agar Editor bisa merevisi!');
     }
 
-    // 1. Cari postingannya
     const post = await this.prisma.post.findUnique({ where: { id } });
     if (!post) {
       throw new NotFoundException('Postingan tidak ditemukan di database!');
     }
 
-    // 2. Validasi: Hanya status SUBMITTED yang boleh di-reject
     if (post.status !== 'SUBMITTED') {
       throw new BadRequestException(
         `Gagal! Postingan saat ini berstatus ${post.status}. Hanya postingan SUBMITTED yang bisa ditolak.`
       );
     }
 
-    // 3. Kembalikan status ke DRAFT, dan catat alasannya di Audit Log
     const result = await this.prisma.$transaction(async (prisma) => {
       const updatedPost = await prisma.post.update({
         where: { id },
         data: { 
-          status: 'DRAFT', // Dikembalikan ke Draft agar Afifah bisa edit lagi
+          status: 'REJECTED', // 🚨 UBAH JADI REJECTED!
           approver_id: userId,
+          reject_reason: reason, // 📝 Simpan pesan revisi ke database!
         },
       });
 
@@ -148,7 +143,7 @@ export class PostsService {
           post_id: id,
           user_id: userId,
           action: 'REJECT',
-          note: `Ditolak dengan alasan: ${reason}`, // Alasan revisi dicatat di sini!
+          note: `Ditolak dengan alasan: ${reason}`, 
         },
       });
 
@@ -160,21 +155,16 @@ export class PostsService {
 
   // Fitur 2: Mengambil Semua Data Postingan
   async findAll(page: number = 1, limit: number = 10, status?: PostStatus) {
-    // 1. Hitung data mana yang harus dilewati (untuk halaman 2, 3, dst)
     const skip = (page - 1) * limit;
-    
-    // 2. Siapkan keranjang filter (kalau status kosong, tampilkan semua)
     const whereCondition = status ? { status } : {};
 
-    // 3. Ambil data dan hitung total keseluruhan secara bersamaan
     const [data, total] = await Promise.all([
       this.prisma.post.findMany({
         where: whereCondition,
         skip: skip,
         take: limit,
-        orderBy: { created_at: 'desc' }, // Urutkan dari yang paling baru
+        orderBy: { created_at: 'desc' }, 
         include: {
-          // AJAIB: Ubah UUID menjadi Nama Asli!
           author: { select: { name: true, role: true } },
           approver: { select: { name: true, role: true } },
         }
@@ -182,7 +172,6 @@ export class PostsService {
       this.prisma.post.count({ where: whereCondition })
     ]);
 
-    // 4. Kembalikan data dengan format rapi untuk Frontend
     return {
       message: 'Berhasil mengambil data postingan',
       data: data,
@@ -194,35 +183,29 @@ export class PostsService {
       }
     };
   }
-  
 
   findOne(id: string) {
     return `Ini aksi untuk mengambil postingan dengan ID #${id}`;
   }
 
   async update(id: string, updatePostDto: UpdatePostDto) {
-    // 1. Cari data aslinya dulu
     const post = await this.prisma.post.findUnique({ where: { id } });
     if (!post) {
       throw new NotFoundException('Postingan tidak ditemukan di database!');
     }
 
-    // 2. SAFETY NET 🛡️: Pastikan updatePostDto selalu berupa objek, meskipun kosong
     const payload = updatePostDto || {};
 
-    // 3. Logika ubah status
     let newStatus = post.status;
     if (post.status === 'UNCONFIGURED') {
       newStatus = 'DRAFT';
     }
 
-    // 4. Update data dengan aman
     const updatedPost = await this.prisma.post.update({
       where: { id },
       data: {
-        // Keajaiban Prisma: kalau nilai payload.caption itu 'undefined', 
-        // Prisma TIDAK AKAN menghapus data lama di database. Sangat aman!
         caption: payload.caption,
+        content_type: payload.content_type, // 💡 Pastikan format konten (REELS/CAROUSEL) ikut tersimpan
         scheduled_time: payload.scheduled_time,
         status: newStatus, 
       },

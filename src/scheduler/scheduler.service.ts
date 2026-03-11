@@ -8,6 +8,9 @@ import axios from 'axios';
 export class SchedulerService {
   private readonly logger = new Logger(SchedulerService.name);
 
+  // 🔐 Brankas Memori: Menyimpan ID postingan yang sedang di-upload
+  private processingPosts = new Set<string>();
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly driveService: DriveService
@@ -35,6 +38,19 @@ export class SchedulerService {
       this.logger.log(`🎯 Menemukan ${postsToPublish.length} postingan siap tayang!`);
 
       for (const post of postsToPublish) {
+        
+        // ==========================================
+        // 🔐 SISTEM ANTI-DOUBLE POSTING
+        // ==========================================
+        // 1. CEK GEMBOK: Jika ID ini ada di memori, artinya sedang di-upload oleh siklus sebelumnya. Lewati!
+        if (this.processingPosts.has(post.id)) {
+          this.logger.warn(`⏳ Postingan ${post.id} sedang dalam proses upload. Melewati agar tidak double!`);
+          continue; 
+        }
+
+        // 2. PASANG GEMBOK: Masukkan ID ke memori agar siklus berikutnya tahu ini sedang dikerjakan.
+        this.processingPosts.add(post.id);
+
         try {
           const token = process.env.META_ACCESS_TOKEN;
           const igAccountId = process.env.IG_ACCOUNT_ID;
@@ -62,7 +78,6 @@ export class SchedulerService {
             // --------------------------------------------------
             this.logger.log(`🎬 Mode REELS aktif untuk video: ${videoFiles[0].name}...`);
             
-            // JURUS BYPASS: Paksa Google Drive untuk langsung memberikan file MP4 (Hindari webContentLink)
             const videoUrl = `https://drive.google.com/uc?export=download&id=${videoFiles[0].id}`;
 
             this.logger.log(`📦 [Tahap 1] Mengirim Video ke Meta...`);
@@ -78,29 +93,27 @@ export class SchedulerService {
             creationId = (containerRes.data as any).id;
             this.logger.log(`✅ [Tahap 1 SUKSES] Container Reels ID: ${creationId}`);
 
-            // 🛑 SISTEM RADAR: Polling Status Video
             let videoStatus = 'IN_PROGRESS';
             let attempts = 0;
             this.logger.log(`📡 Menyalakan radar... Menunggu Meta selesai memproses video...`);
             
             while (videoStatus !== 'FINISHED' && attempts < 20) {
-              await new Promise(resolve => setTimeout(resolve, 10000)); // Tunggu 10 detik
+              await new Promise(resolve => setTimeout(resolve, 10000)); 
               attempts++;
               
-              // KITA TAMBAHKAN 'status' AGAR META MEMBERI TAHU ALASAN ERROR-NYA
               const statusRes = await axios.get(
                 `https://graph.facebook.com/v19.0/${creationId}?fields=status_code,status`,
                 { headers: { Authorization: `Bearer ${token}` } }
               );
               
               videoStatus = (statusRes.data as any).status_code;
-              const detailedStatus = (statusRes.data as any).status; // Intip alasan aslinya
+              const detailedStatus = (statusRes.data as any).status; 
 
               this.logger.log(`   -> Status Pengecekan ke-${attempts}: ${videoStatus}`);
               
               if (videoStatus === 'ERROR') {
                 this.logger.error(`❌ Detail Error dari Meta:`, detailedStatus);
-                throw new Error(`Meta menolak video. Alasan: ${detailedStatus?.error_message || 'Format tidak didukung / Diblokir Google'}`);
+                throw new Error(`Meta menolak video. Alasan: ${detailedStatus?.error_message || 'Format tidak didukung'}`);
               }
             }
 
@@ -157,7 +170,7 @@ export class SchedulerService {
           }
 
           // ==========================================
-          // FASE 2: PUBLISH KE FEED INSTAGRAM (BERLAKU UNTUK SEMUA)
+          // FASE 2: PUBLISH KE FEED INSTAGRAM
           // ==========================================
           this.logger.log(`🔥 [Tahap 2] Menerbitkan ke Feed Instagram...`);
           const publishResponse = await axios.post(
@@ -176,6 +189,13 @@ export class SchedulerService {
         } catch (error) {
           this.logger.error(`❌ GAGAL MEMPOSTING ID: ${post.id}`);
           this.logger.error(error.response?.data?.error?.message || error.message);
+        } finally {
+          // ==========================================
+          // 3. BUKA GEMBOK
+          // ==========================================
+          // Apapun yang terjadi (sukses atau error), pastikan ID dihapus dari memori
+          // agar tidak menyumbat sistem di masa depan.
+          this.processingPosts.delete(post.id);
         }
       }
     } catch (error) {

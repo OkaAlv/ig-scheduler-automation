@@ -22,6 +22,7 @@ enum PostStatus {
   UNCONFIGURED
   DRAFT
   SUBMITTED
+  REJECTED
   APPROVED
   SCHEDULED
   POSTED
@@ -68,6 +69,7 @@ model Post {
   drive_folder_id String?
   content_type    ContentType @default(FEED)
   status          PostStatus  @default(UNCONFIGURED)
+  reject_reason   String?
   author_id       String      @db.Uuid
   approver_id     String?     @db.Uuid
   scheduled_time  DateTime?
