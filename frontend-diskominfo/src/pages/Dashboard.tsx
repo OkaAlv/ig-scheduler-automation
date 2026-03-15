@@ -58,14 +58,14 @@ export default function Dashboard() {
   const fetchPosts = async () => {
     try {
       // 1. Ambil data tabel antrean
-      const response = await axios.get('${import.meta.env.VITE_API_URL}/posts', {
+      const response = await axios.get(`${import.meta.env.VITE_API_URL}/posts`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       const dataList = response.data.data || response.data;
       setPosts(Array.isArray(dataList) ? dataList : []);
 
       // 2. Ambil data statistik untuk kartu
-      const statsResponse = await axios.get('${import.meta.env.VITE_API_URL}/posts/stats', {
+      const statsResponse = await axios.get(`${import.meta.env.VITE_API_URL}/posts/stats`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setStats(statsResponse.data.data);
@@ -80,7 +80,7 @@ export default function Dashboard() {
     setLoading(true);
     try {
       const response = await axios.post(
-        '${import.meta.env.VITE_API_URL}/drive/sync',
+        `${import.meta.env.VITE_API_URL}/drive/sync`,
         { user_id: currentUser?.sub }, 
         { headers: { Authorization: `Bearer ${token}` } }
       );
