@@ -58,14 +58,14 @@ export default function Dashboard() {
   const fetchPosts = async () => {
     try {
       // 1. Ambil data tabel antrean
-      const response = await axios.get('http://localhost:3000/posts', {
+      const response = await axios.get('${import.meta.env.VITE_API_URL}/posts', {
         headers: { Authorization: `Bearer ${token}` }
       });
       const dataList = response.data.data || response.data;
       setPosts(Array.isArray(dataList) ? dataList : []);
 
       // 2. Ambil data statistik untuk kartu
-      const statsResponse = await axios.get('http://localhost:3000/posts/stats', {
+      const statsResponse = await axios.get('${import.meta.env.VITE_API_URL}/posts/stats', {
         headers: { Authorization: `Bearer ${token}` }
       });
       setStats(statsResponse.data.data);
@@ -80,7 +80,7 @@ export default function Dashboard() {
     setLoading(true);
     try {
       const response = await axios.post(
-        'http://localhost:3000/drive/sync',
+        '${import.meta.env.VITE_API_URL}/drive/sync',
         { user_id: currentUser?.sub }, 
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -111,7 +111,7 @@ export default function Dashboard() {
   };
 
   const savePostChanges = async () => {
-    await axios.patch(`http://localhost:3000/posts/${selectedPost.id}`, {
+    await axios.patch(`${import.meta.env.VITE_API_URL}/posts/${selectedPost.id}`, {
       caption: caption,
       content_type: contentType,
       scheduled_time: scheduledTime ? new Date(scheduledTime).toISOString() : null,
@@ -121,7 +121,7 @@ export default function Dashboard() {
   const handleSubmitToApprover = async () => {
     try {
       await savePostChanges();
-      await axios.post(`http://localhost:3000/posts/${selectedPost.id}/submit`, {}, {
+      await axios.post(`${import.meta.env.VITE_API_URL}/posts/${selectedPost.id}/submit`, {}, {
         headers: { Authorization: `Bearer ${token}` }
       });
       alert('✅ Draf berhasil dikirim ke Approver!');
@@ -136,7 +136,7 @@ export default function Dashboard() {
     if (!scheduledTime) return alert('⚠️ Mohon isi jadwal tayangnya dulu!');
     try {
       await savePostChanges();
-      await axios.post(`http://localhost:3000/posts/${selectedPost.id}/approve`, {}, {
+      await axios.post(`${import.meta.env.VITE_API_URL}/posts/${selectedPost.id}/approve`, {}, {
         headers: { Authorization: `Bearer ${token}` }
       });
       alert('🎉 Disetujui! Robot akan mengeksekusinya sesuai jadwal.');
@@ -150,7 +150,7 @@ export default function Dashboard() {
   const handleReject = async () => {
     if (!rejectReason) return alert('⚠️ Harap isi alasan penolakan!');
     try {
-      await axios.post(`http://localhost:3000/posts/${selectedPost.id}/reject`, { reason: rejectReason }, {
+      await axios.post(`${import.meta.env.VITE_API_URL}/posts/${selectedPost.id}/reject`, { reason: rejectReason }, {
         headers: { Authorization: `Bearer ${token}` }
       });
       alert('🔙 Postingan dikembalikan ke Editor untuk revisi.');
@@ -169,7 +169,7 @@ export default function Dashboard() {
 
     setIsChangingPassword(true);
     try {
-      await axios.patch(`http://localhost:3000/auth/change-password`, 
+      await axios.patch(`${import.meta.env.VITE_API_URL}/auth/change-password`, 
         { newPassword: newPassword }, 
         { headers: { Authorization: `Bearer ${token}` } }
       );

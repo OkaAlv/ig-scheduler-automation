@@ -14,7 +14,7 @@ export default function Login() {
       console.log('Mengetuk pintu backend NestJS...');
       
       // Menembak API Backend Anda!
-      const response = await axios.post('http://localhost:3000/auth/login', {
+      const response = await axios.post('${import.meta.env.VITE_API_URL}/auth/login', {
         email: email,
         password: password,
       });
