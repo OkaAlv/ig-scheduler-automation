@@ -1,6 +1,5 @@
 import { Injectable, InternalServerErrorException } from '@nestjs/common';
 import { google } from 'googleapis';
-import * as path from 'path';
 import { PrismaService } from '../prisma/prisma.service'; // Jembatan DB
 
 @Injectable()
@@ -10,13 +9,18 @@ export class DriveService {
   // Inject PrismaService
   constructor(private readonly prisma: PrismaService) {
     try {
-      const keyFilePath = path.join(process.cwd(), 'credentials', 'google-drive.json');
+      // 🛡️ BACA DARI ENVIRONMENT VARIABLES (Aman untuk Render/Cloud)
       const auth = new google.auth.GoogleAuth({
-        keyFile: keyFilePath,
+        credentials: {
+          client_email: process.env.GOOGLE_CLIENT_EMAIL,
+          // WAJIB pakai replace ini agar spasi/enter di kunci rahasia terbaca dengan benar oleh Render
+          private_key: process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+        },
         scopes: ['https://www.googleapis.com/auth/drive.readonly'],
       });
+      
       this.driveClient = google.drive({ version: 'v3', auth });
-      console.log('✅ Google Drive API siap!');
+      console.log('✅ Google Drive API siap mengudara dari Cloud!');
     } catch (error) {
       console.error('❌ Gagal inisialisasi Drive:', error);
     }
