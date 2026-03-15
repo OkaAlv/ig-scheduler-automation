@@ -9,7 +9,7 @@ export class AuthGuard implements CanActivate {
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest();
     
-    // 1. Satpam meminta tiket dari saku pengunjung (Header Authorization)
+    // 1. Satpam meminta tiket dari saku pengunjung
     const token = this.extractTokenFromHeader(request);
     
     if (!token) {
@@ -17,19 +17,15 @@ export class AuthGuard implements CanActivate {
     }
     
     try {
-      // 2. Satpam mengecek keaslian tiket menggunakan stempel rahasia
       const payload = await this.jwtService.verifyAsync(token, {
-        secret: 'RAHASIA_NEGARA_MEDAN_123', 
+        // 🛡️ KUNCI RAHASIA SUDAH DISAMAKAN DENGAN MESIN TIKET
+        secret: process.env.JWT_SECRET as string, 
       });
       
-      // 3. Jika asli, Satpam menempelkan ID Card pengunjung ke bajunya (request.user)
-      // agar nanti Controller kita tahu siapa yang sedang berkunjung.
       request['user'] = payload;
     } catch {
       throw new UnauthorizedException('BERHENTI! Tiket Anda palsu atau sudah kadaluarsa!');
     }
-    
-    // 4. Silakan masuk!
     return true;
   }
 

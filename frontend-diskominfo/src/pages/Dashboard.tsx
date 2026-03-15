@@ -54,7 +54,6 @@ export default function Dashboard() {
   const [isRejecting, setIsRejecting] = useState(false);
 
   // --- FUNGSI UTAMA API ---
-  // --- FUNGSI UTAMA API ---
   const fetchPosts = async () => {
     try {
       // 1. Ambil data tabel antrean
