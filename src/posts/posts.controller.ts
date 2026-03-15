@@ -47,6 +47,15 @@ export class PostsController {
     return this.postsService.findAll(pageNumber, limitNumber, status);
   }
 
+  @Get('stats')
+  async getStats() {
+    const stats = await this.postsService.getDashboardStats();
+    return {
+      message: 'Berhasil mengambil statistik',
+      data: stats
+    };
+  }
+
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.postsService.findOne(id);

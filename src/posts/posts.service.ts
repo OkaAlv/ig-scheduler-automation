@@ -220,4 +220,24 @@ export class PostsService {
   remove(id: string) {
     return `Ini aksi untuk menghapus postingan dengan ID #${id}`;
   }
+
+  // Fitur Baru: Mengambil Statistik Dashboard
+  async getDashboardStats() {
+    // Kita suruh Prisma menghitung semuanya secara paralel (bersamaan) agar super cepat!
+    const [total, submitted, approved, published, rejected] = await Promise.all([
+      this.prisma.post.count(),
+      this.prisma.post.count({ where: { status: 'SUBMITTED' } }),
+      this.prisma.post.count({ where: { status: 'APPROVED' } }),
+      this.prisma.post.count({ where: { status: 'PUBLISHED' } }),
+      this.prisma.post.count({ where: { status: 'REJECTED' } }),
+    ]);
+
+    return {
+      total,
+      submitted,
+      approved,
+      published,
+      rejected
+    };
+  }
 }

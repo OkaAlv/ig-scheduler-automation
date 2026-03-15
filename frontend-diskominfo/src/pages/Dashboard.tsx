@@ -10,6 +10,10 @@ export default function Dashboard() {
   // --- STATE UNTUK MENU SIDEBAR ---
   const [activeTab, setActiveTab] = useState('ANTREAN'); 
 
+  // --- STATE STATISTIK ---
+  const [stats, setStats] = useState({ total: 0, submitted: 0, approved: 0, published: 0, rejected: 0 });
+  const [filterDate, setFilterDate] = useState('');
+
   // --- STATE GANTI PASSWORD ---
   const [newPassword, setNewPassword] = useState('');
   const [isChangingPassword, setIsChangingPassword] = useState(false);
@@ -50,13 +54,21 @@ export default function Dashboard() {
   const [isRejecting, setIsRejecting] = useState(false);
 
   // --- FUNGSI UTAMA API ---
+  // --- FUNGSI UTAMA API ---
   const fetchPosts = async () => {
     try {
+      // 1. Ambil data tabel antrean
       const response = await axios.get('http://localhost:3000/posts', {
         headers: { Authorization: `Bearer ${token}` }
       });
       const dataList = response.data.data || response.data;
       setPosts(Array.isArray(dataList) ? dataList : []);
+
+      // 2. Ambil data statistik untuk kartu
+      const statsResponse = await axios.get('http://localhost:3000/posts/stats', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setStats(statsResponse.data.data);
     } catch (error) {
       console.error('Gagal mengambil data:', error);
     }
@@ -179,7 +191,20 @@ export default function Dashboard() {
 
   // --- FILTERING DATA UNTUK TAB ---
   const antreanPosts = posts.filter(p => p.status !== 'PUBLISHED');
-  const riwayatPosts = posts.filter(p => p.status === 'PUBLISHED');
+  
+  // Logika Filter Tanggal untuk Riwayat
+  const riwayatPosts = posts.filter(p => {
+    // 1. Pastikan statusnya PUBLISHED
+    if (p.status !== 'PUBLISHED') return false;
+    
+    // 2. Jika user memilih tanggal, cocokkan dengan jadwal tayang
+    if (filterDate && p.scheduled_time) {
+      const postDate = p.scheduled_time.split('T')[0]; // Potong jamnya, ambil YYYY-MM-DD saja
+      return postDate === filterDate;
+    }
+    
+    return true; // Tampilkan semua jika tidak ada tanggal yang dipilih
+  });
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: '#f4f7fe', fontFamily: 'sans-serif' }}>
@@ -246,6 +271,37 @@ export default function Dashboard() {
           {/* ------------------------------------------- */}
           {activeTab === 'ANTREAN' && (
             <>
+            {/* 📈 WIDGET KARTU STATISTIK (Sekarang 5 Kolom) */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '15px', marginBottom: '30px' }}>
+                
+                <div style={{ backgroundColor: 'white', padding: '15px 20px', borderRadius: '15px', boxShadow: '0 4px 15px rgba(0,0,0,0.03)', borderBottom: '4px solid #4318ff' }}>
+                  <div style={{ color: '#a0aec0', fontSize: '11px', fontWeight: 'bold', marginBottom: '5px' }}>TOTAL DRAF DRIVE</div>
+                  <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#2b3674' }}>{stats.total}</div>
+                </div>
+
+                <div style={{ backgroundColor: 'white', padding: '15px 20px', borderRadius: '15px', boxShadow: '0 4px 15px rgba(0,0,0,0.03)', borderBottom: '4px solid #f6ad55' }}>
+                  <div style={{ color: '#a0aec0', fontSize: '11px', fontWeight: 'bold', marginBottom: '5px' }}>MENUNGGU REVIEW</div>
+                  <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#dd6b20' }}>{stats.submitted}</div>
+                </div>
+
+                <div style={{ backgroundColor: 'white', padding: '15px 20px', borderRadius: '15px', boxShadow: '0 4px 15px rgba(0,0,0,0.03)', borderBottom: '4px solid #48bb78' }}>
+                  <div style={{ color: '#a0aec0', fontSize: '11px', fontWeight: 'bold', marginBottom: '5px' }}>SIAP TAYANG</div>
+                  <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#2f855a' }}>{stats.approved}</div>
+                </div>
+
+                <div style={{ backgroundColor: 'white', padding: '15px 20px', borderRadius: '15px', boxShadow: '0 4px 15px rgba(0,0,0,0.03)', borderBottom: '4px solid #e53e3e' }}>
+                  <div style={{ color: '#a0aec0', fontSize: '11px', fontWeight: 'bold', marginBottom: '5px' }}>PERLU REVISI</div>
+                  <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#c53030' }}>{stats.rejected}</div>
+                </div>
+
+                {/* 🌟 KARTU BARU: TOTAL PUBLISH */}
+                <div style={{ backgroundColor: 'white', padding: '15px 20px', borderRadius: '15px', boxShadow: '0 4px 15px rgba(0,0,0,0.03)', borderBottom: '4px solid #3182ce', backgroundImage: 'linear-gradient(to right bottom, #ffffff, #f0f7ff)' }}>
+                  <div style={{ color: '#3182ce', fontSize: '11px', fontWeight: 'bold', marginBottom: '5px' }}>SUKSES TERBIT</div>
+                  <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#2b6cb0' }}>{stats.published}</div>
+                </div>
+
+              </div>
+
               {(isAdmin || isEditor) && (
                 <div style={{ backgroundColor: 'white', padding: '25px', borderRadius: '15px', boxShadow: '0 5px 14px rgba(0,0,0,0.05)', marginBottom: '30px', borderLeft: '5px solid #4318ff' }}>
                   <h3 style={{ marginTop: 0, color: '#2b3674' }}>📂 Tarik Data Baru</h3>
@@ -296,31 +352,66 @@ export default function Dashboard() {
           {/* ------------------------------------------- */}
           {/* TAB 2: RIWAYAT TERBIT */}
           {/* ------------------------------------------- */}
+          {/* ------------------------------------------- */}
+          {/* TAB 2: RIWAYAT TERBIT */}
+          {/* ------------------------------------------- */}
           {activeTab === 'RIWAYAT' && (
             <div style={{ backgroundColor: 'white', padding: '25px', borderRadius: '15px', boxShadow: '0 5px 14px rgba(0,0,0,0.05)' }}>
-              <h3 style={{ marginTop: 0, color: '#2b3674', marginBottom: '20px' }}>🗂️ Riwayat Postingan Berhasil Terbit</h3>
+              
+              {/* HEADER & FILTER KALENDER */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '15px' }}>
+                <h3 style={{ margin: 0, color: '#2b3674' }}>🗂️ Riwayat Postingan Berhasil Terbit</h3>
+                
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', backgroundColor: '#f4f7fe', padding: '8px 15px', borderRadius: '10px' }}>
+                  <label style={{ fontSize: '13px', fontWeight: 'bold', color: '#2b3674' }}>📅 Cek Tanggal:</label>
+                  <input 
+                    type="date" 
+                    value={filterDate}
+                    onChange={(e) => setFilterDate(e.target.value)}
+                    style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', color: '#2b3674', fontWeight: 'bold', outline: 'none' }}
+                  />
+                  {filterDate && (
+                    <button onClick={() => setFilterDate('')} style={{ padding: '8px 12px', backgroundColor: '#ff4d4f', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px' }}>
+                      ✖ Reset
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* INDIKATOR PENCARIAN */}
+              {filterDate && (
+                <div style={{ marginBottom: '20px', padding: '12px 15px', backgroundColor: '#ebf8ff', borderLeft: '4px solid #3182ce', borderRadius: '8px', fontSize: '14px', color: '#2b6cb0' }}>
+                  Menemukan <strong>{riwayatPosts.length} postingan</strong> yang terbit pada tanggal <strong>{new Date(filterDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</strong>.
+                </div>
+              )}
+
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead>
                   <tr style={{ backgroundColor: '#f4f7fe', color: '#a0aec0', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '1px', textAlign: 'left' }}>
-                    <th style={{ padding: '15px', borderRadius: '8px 0 0 8px' }}>Materi Konten</th>
+                    <th style={{ padding: '15px', borderRadius: '8px 0 0 8px' }}>Judul Konten / Folder</th>
                     <th style={{ padding: '15px' }}>Status</th>
                     <th style={{ padding: '15px', borderRadius: '0 8px 8px 0' }}>Waktu Terbit</th>
                   </tr>
                 </thead>
                 <tbody>
                   {riwayatPosts.length === 0 ? (
-                    <tr><td colSpan={3} style={{ padding: '30px', textAlign: 'center', color: '#a0aec0' }}>Belum ada postingan yang diterbitkan oleh sistem.</td></tr>
+                    <tr>
+                      <td colSpan={3} style={{ padding: '40px', textAlign: 'center', color: '#a0aec0' }}>
+                        {filterDate ? 'Tidak ada postingan yang terbit pada tanggal tersebut.' : 'Belum ada postingan yang diterbitkan oleh sistem.'}
+                      </td>
+                    </tr>
                   ) : (
                     riwayatPosts.map((post) => (
                       <tr key={post.id} style={{ borderBottom: '1px solid #edf2f7' }}>
                         <td style={{ padding: '15px' }}>
                           <div style={{ fontWeight: 'bold', color: '#2b3674', fontSize: '14px' }}>{post.folder_name || post.title || `Folder: ${post.drive_folder_id}`}</div>
+                          {post.caption && <div style={{ fontSize: '12px', color: '#718096', marginTop: '4px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '300px' }}>{post.caption}</div>}
                         </td>
                         <td style={{ padding: '15px' }}>
                           <span style={{ padding: '6px 12px', borderRadius: '20px', fontSize: '11px', fontWeight: 'bold', backgroundColor: '#cce5ff', color: '#004085' }}>✅ {post.status}</span>
                         </td>
                         <td style={{ padding: '15px', color: '#718096', fontSize: '14px', fontWeight: '500' }}>
-                          {post.scheduled_time ? new Date(post.scheduled_time).toLocaleString('id-ID') : '-'}
+                          {post.scheduled_time ? new Date(post.scheduled_time).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' }) : '-'}
                         </td>
                       </tr>
                     ))
