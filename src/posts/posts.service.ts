@@ -217,8 +217,21 @@ export class PostsService {
     };
   }
 
-  remove(id: string) {
-    return `Ini aksi untuk menghapus postingan dengan ID #${id}`;
+  async deletePost(id: string) {
+    const post = await this.prisma.post.findUnique({ where: { id } });
+    if (!post) {
+      throw new NotFoundException('Postingan tidak ditemukan di database!');
+    }
+
+    const deletedPost = await this.prisma.post.update({
+      where: { id },
+      data: { status: 'DELETED' },
+    });
+
+    return { 
+      message: 'Postingan berhasil dibatalkan dan dihapus dari antrean.', 
+      data: deletedPost 
+    };
   }
 
   // Fitur Baru: Mengambil Statistik Dashboard
@@ -239,5 +252,45 @@ export class PostsService {
       published,
       rejected
     };
+  }
+
+  async remove(id: string) {
+    // 1. Pastikan post-nya ada terlebih dahulu
+    const post = await this.prisma.post.findUnique({ where: { id } });
+    if (!post) throw new Error('Data tidak ditemukan!');
+
+    // 2. Ubah statusnya menjadi 'DELETED' (bukan dihapus fisik)
+    return this.prisma.post.update({
+      where: { id },
+      data: { status: 'DELETED' }, 
+    });
+  }
+
+  async restorePost(id: string) {
+    const post = await this.prisma.post.findUnique({ where: { id } });
+    
+    if (!post) throw new Error('Data tidak ditemukan!');
+    if (post.status !== 'DELETED') throw new Error('Hanya data terhapus yang bisa dipulihkan!');
+
+    return this.prisma.post.update({
+      where: { id },
+      data: { status: 'UNCONFIGURED' }, // Balikkan ke status awal agar bisa di-set ulang
+    });
+  }
+
+  async hardDeletePost(id: string) {
+    // 1. Cek dulu apakah datanya ada
+    const post = await this.prisma.post.findUnique({
+      where: { id },
+    });
+
+    if (!post) {
+      throw new Error('Data tidak ditemukan atau sudah dihapus!');
+    }
+
+    // 2. Eksekusi hapus fisik dari tabel
+    return await this.prisma.post.delete({
+      where: { id },
+    });
   }
 }

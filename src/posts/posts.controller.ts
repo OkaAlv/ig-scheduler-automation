@@ -1,9 +1,11 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, Request, Query } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, Request, Query} from '@nestjs/common';
 import { PostsService } from './posts.service';
 import { CreatePostDto } from './dto/create-post.dto';
 import { UpdatePostDto } from './dto/update-post.dto';
 import { AuthGuard } from '../auth/auth.guard';
 import { PostStatus } from '@prisma/client';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { RolesGuard } from '../auth/guards/roles.guard';
 
 @UseGuards(AuthGuard)
 @Controller('posts')
@@ -66,9 +68,27 @@ export class PostsController {
     return this.postsService.update(id, updatePostDto);
   }
 
+  // PINTU 1: Untuk Soft Delete (Menangkap URL: /posts/:id)
   @Delete(':id')
-  remove(@Param('id') id: string) {
+  @UseGuards(AuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  async remove(@Param('id') id: string) {
     return this.postsService.remove(id);
+  }
+  
+  @Patch(':id/restore')
+  @UseGuards(AuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  async restore(@Param('id') id: string) {
+    return this.postsService.restorePost(id);
+  }
+
+  // Endpoint: DELETE /posts/:id/permanent
+  @Delete(':id/permanent')
+  @UseGuards(AuthGuard, RolesGuard) // Pakai satpam yang kita buat tadi
+  @Roles('ADMIN') // Hanya ADMIN yang punya tombol nuklir ini
+  async hardRemove(@Param('id') id: string) {
+    return this.postsService.hardDeletePost(id);
   }
   
 }
